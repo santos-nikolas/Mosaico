@@ -18,205 +18,234 @@ Demonstrar uma solução tecnológica alinhada ao tema **“O Futuro do Trabalho
 
 ---
 
+## 📐 Arquitetura da Solução
+
+A API segue uma arquitetura limpa baseada em três camadas principais:
+
+*   **Controllers REST:** Responsáveis por receber as requisições HTTP, validar a entrada e orquestrar as operações.
+*   **Camada de Aplicação:** Onde residem as regras de negócio simples e a lógica de coordenação.
+*   **Acesso a Dados:** Abstraído pelo **Entity Framework Core**, que se comunica com um banco de dados **SQL Server**.
+
+Os diagramas abaixo ilustram a estrutura e o fluxo dos componentes.
+
+### 🗺️ 1 — Arquitetura Geral
+
+Este diagrama mostra a visão macro da solução, desde o cliente até a persistência dos dados.
+
+```mermaid
+flowchart LR
+    subgraph Client["Cliente / Consumidores"]
+        SW["Swagger UI"]
+        PM["Postman / App Mobile (futuro)"]
+    end
+
+    subgraph API["MOSAICO+ Core API (.NET 8)"]
+        CTRL["Controllers REST\n(Users, Tracks, UserTracks,\nMissions, UserMissions, Badges)"]
+        APP["Camada de Aplicação\n(Regra de Negócio)"]
+        EF["Entity Framework Core"]
+    end
+
+    subgraph DB["Banco de Dados\nSQL Server (MosaicoDb)"]
+        TB_USERS["Tabela: Users"]
+        TB_TRACKS["Tabela: Tracks"]
+        TB_UTP["Tabela: UserTrackProgresses"]
+        TB_MISSIONS["Tabela: Missions"]
+        TB_UM["Tabela: UserMissions"]
+        TB_BADGES["Tabela: Badges"]
+    end
+
+    SW --> CTRL
+    PM --> CTRL
+
+    CTRL --> APP
+    APP --> EF
+    EF --> TB_USERS
+    EF --> TB_TRACKS
+    EF --> TB_UTP
+    EF --> TB_MISSIONS
+    EF --> TB_UM
+    EF --> TB_BADGES
+```
+
+### 🏛️ 2 — Modelo de Domínio (Entidades)
+
+O diagrama abaixo representa as principais entidades do sistema e seus relacionamentos.
+
+```mermaid
+classDiagram
+    class User {
+        int Id
+        string Name
+        string Email
+        string AreaOfInterest
+        int Level
+        int Xp
+    }
+
+    class Track {
+        int Id
+        string Title
+        string Area
+        int TotalLessons
+        int EstimatedHours
+    }
+
+    class UserTrackProgress {
+        int Id
+        int UserId
+        int TrackId
+        int LessonsCompleted
+        int ProgressPercentage
+    }
+
+    class Mission {
+        int Id
+        string Title
+        string Description
+        string Type  // daily/weekly
+        int RewardXp
+    }
+
+    class UserMission {
+        int Id
+        int UserId
+        int MissionId
+        bool IsCompleted
+        DateTime? CompletedAt
+    }
+
+    class Badge {
+        int Id
+        string Code
+        string Name
+        string Description
+        int UserId
+    }
+
+    User "1" --> "many" UserTrackProgress : tracksProgress
+    Track "1" --> "many" UserTrackProgress : usersProgress
+
+    User "1" --> "many" UserMission : userMissions
+    Mission "1" --> "many" UserMission : userMissions
+
+    User "1" --> "many" Badge : badges
+```
+
+### 🔁 3 — Fluxo de Gamificação
+
+Este diagrama de sequência ilustra um fluxo de uso comum na plataforma, mostrando como a gamificação funciona.
+
+```mermaid
+sequenceDiagram
+    participant U as Usuário
+    participant API as MOSAICO+ API
+    participant DB as Banco (SQL Server)
+
+    U->>API: POST /users/{id}/missions/{id}/complete
+    API->>API: Valida dados da requisição
+    API->>DB: Busca Usuário e Missão
+    DB-->>API: Retorna dados
+    API->>API: Calcula novo XP do usuário
+    API->>DB: Atualiza User (XP) e UserMission (IsCompleted)
+    DB-->>API: Confirmação de persistência
+    API-->>U: 204 NoContent (Sucesso)
+```
+
+---
+
 ## 🔗 Versionamento da API
 
-A API utiliza **versionamento por URL**, na forma:
+A API utiliza **versionamento por URL**. Todas as rotas desta versão seguem o prefixo `api/v1`.
 
-- Versão atual: `v1`
-- Exemplo de rota:  
-  - `GET /api/v1/users`
-  - `GET /api/v1/tracks`
+-   **Exemplo:** `GET /api/v1/users`
 
-Essa estratégia permite evoluir a API no futuro (`/api/v2/...`) sem quebrar integrações existentes.  
-Todas as rotas desta versão seguem o prefixo: `api/v1`.
+Essa estratégia permite evoluir a API no futuro (`/api/v2/...`) sem quebrar integrações existentes.
 
 ---
 
-## 🧱 Principais Recursos (v1)
+## 🧱 Principais Recursos (Endpoints v1)
+
+A seguir, a lista dos principais endpoints disponíveis.
 
 ### 👤 Users
-
-Gerenciamento de usuários da plataforma.
-
-- `GET /api/v1/users`  
-- `GET /api/v1/users/{id}`  
-- `POST /api/v1/users`  
-- `PUT /api/v1/users/{id}`  
-- `DELETE /api/v1/users/{id}`  
-
-Uso de status codes:
-
-- `200 OK` (consulta bem-sucedida)  
-- `201 Created` (criação de usuário)  
-- `204 NoContent` (atualização/remoção)  
-- `400 BadRequest` (dados inválidos)  
-- `404 NotFound` (usuário inexistente)
-
----
+- `GET /api/v1/users`
+- `GET /api/v1/users/{id}`
+- `POST /api/v1/users`
+- `PUT /api/v1/users/{id}`
+- `DELETE /api/v1/users/{id}`
 
 ### 📚 Tracks
+- `GET /api/v1/tracks`
+- `GET /api/v1/tracks/{id}`
+- `POST /api/v1/tracks`
+- `PUT /api/v1/tracks/{id}`
+- `DELETE /api/v1/tracks/{id}`
 
-Trilhas de aprendizagem que representam jornadas de estudo.
-
-- `GET /api/v1/tracks`  
-- `GET /api/v1/tracks/{id}`  
-- `POST /api/v1/tracks`  
-- `PUT /api/v1/tracks/{id}`  
-- `DELETE /api/v1/tracks/{id}`  
-
-Cada trilha contém título, área, número total de aulas e horas estimadas.
-
----
-
-### 📈 User Tracks (Progresso nas trilhas)
-
-Consulta e atualização do progresso do usuário em uma trilha específica.
-
-- `GET /api/v1/users/{userId}/tracks`  
-  Lista o progresso do usuário em cada trilha.
-
-- `POST /api/v1/users/{userId}/tracks/{trackId}/progress`  
-  Atualiza o número de aulas concluídas e recalcula a porcentagem de progresso.
-
----
+### 📈 User Tracks (Progresso)
+- `GET /api/v1/users/{userId}/tracks`
+- `POST /api/v1/users/{userId}/tracks/{trackId}/progress`
 
 ### 🎯 Missions & User Missions
+- `GET /api/v1/missions`
+- `POST /api/v1/missions`
+- `GET /api/v1/users/{userId}/missions`
+- `POST /api/v1/users/{userId}/missions/{missionId}/complete`
 
-Missões diárias/semanais que guiam o comportamento do usuário.
-
-**Missões (CRUD):**
-
-- `GET /api/v1/missions`  
-- `GET /api/v1/missions/{id}`  
-- `POST /api/v1/missions`  
-- `PUT /api/v1/missions/{id}`  
-- `DELETE /api/v1/missions/{id}`  
-
-Cada missão possui título, descrição, tipo (`daily`/`weekly`) e XP de recompensa.
-
-**Missões do usuário:**
-
-- `GET /api/v1/users/{userId}/missions`  
-  Lista as missões associadas ao usuário e se estão concluídas ou não.
-
-- `POST /api/v1/users/{userId}/missions/{missionId}/complete`  
-  Marca uma missão como concluída, registra data/hora e aplica **XP** no usuário.
-
----
-
-### 🏅 Badges (conquistas do usuário)
-
-Simulação da camada de recompensas/badges (futura integração com blockchain/metaverso).
-
-- `GET /api/v1/users/{userId}/badges`  
-  Lista todos os badges já conquistados pelo usuário.
-
-- `POST /api/v1/users/{userId}/badges`  
-  Cria um novo badge para o usuário (por exemplo, “Primeira trilha concluída”).
+### 🏅 Badges
+- `GET /api/v1/users/{userId}/badges`
+- `POST /api/v1/users/{userId}/badges`
 
 ---
 
 ## 🗄️ Banco de Dados & Entity Framework Core
 
-- Banco: **SQL Server (LocalDB ou Express)**  
-- ORM: **Entity Framework Core**
+-   **Banco:** SQL Server (LocalDB ou Express)
+-   **ORM:** Entity Framework Core
+-   **Estratégia:** Code-First com Migrations
 
-### Entidades principais
-
-- `User`  
-- `Track`  
-- `UserTrackProgress`  
-- `Mission`  
-- `UserMission`  
-- `Badge`
-
-### Migrations (EF Core)
-
-Para criar/atualizar o banco (quando clonar o repositório):
-
-```bash
-dotnet ef database update
-```
-
-*(A migration `InitialCreate` já está incluída no projeto.)*
+Para criar ou atualizar a estrutura do banco de dados, utilize os comandos do EF Core. A migration inicial (`InitialCreate`) já está incluída no projeto.
 
 ---
 
 ## 📚 Documentação da API (Swagger)
 
-A documentação está disponível via **Swagger UI**.
-
-Ao executar o projeto:
-
-* Acesse:
+A documentação interativa está disponível via **Swagger UI**. Ao executar o projeto, acesse:
 
 ```text
 https://localhost:xxxx/swagger
 ```
+*(A porta `xxxx` será definida ao iniciar a aplicação).*
 
-(Porta conforme gerada na sua máquina.)
-
-Pelo Swagger é possível:
-
-* Inspecionar todos os endpoints;
-* Enviar requisições HTTP de teste;
-* Validar comportamento e status codes.
-
----
-
-## 🧩 Arquitetura (Visão Geral)
-
-A solução segue esta visão em camadas:
-
-* **Cliente**: Swagger UI / Postman / (futuro app mobile – MOSAICO+).
-* **API MOSAICO+**: Web API em .NET 8, com controllers REST, serviços de aplicação e EF Core.
-* **Banco de Dados**: SQL Server, acessado via MosaicoContext.
-
-Os diagramas arquiteturais em Mermaid estão descritos no arquivo `docs/arquitetura.md` e podem ser visualizados em qualquer editor compatível com Mermaid (ex.: VS Code + extensão ou mermaid.live).
+Pelo Swagger é possível inspecionar todos os endpoints, testar requisições e validar os status codes de resposta.
 
 ---
 
 ## ▶️ Como executar localmente
 
-1. Restaurar dependências:
+Siga os passos abaixo para rodar a API em sua máquina.
 
+**1. Restaurar dependências:**
 ```bash
 dotnet restore
 ```
 
-2. Atualizar o banco de dados:
-
+**2. Aplicar as migrations no banco de dados:**
 ```bash
 dotnet ef database update
 ```
 
-3. Executar a API:
-
+**3. Executar a API:**
 ```bash
 dotnet run
 ```
 
-4. Acessar o Swagger:
-
-```text
-https://localhost:xxxx/swagger
-```
+**4. Acessar o Swagger** no endereço fornecido pelo console.
 
 ---
 
 ## 🎥 Vídeo de Demonstração
 
-O vídeo (máximo 5 minutos) demonstra:
-
-1. Contextualização rápida do tema **“O Futuro do Trabalho”** e da proposta MOSAICO+.
-2. Arquitetura da API (diagrama).
-3. Navegação pelo Swagger:
-
-   * criação de usuário e trilha;
-   * atualização de progresso em uma trilha;
-   * criação e conclusão de missão;
-   * concessão e listagem de badges.
-4. Visualização dos dados no banco (SQL Server).
+O vídeo de apresentação do projeto demonstra a arquitetura, o uso dos endpoints via Swagger e a persistência dos dados no banco.
 
 **Link do vídeo:** *[LINK DO YOUTUBE]*
 
