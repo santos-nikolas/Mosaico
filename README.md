@@ -1,75 +1,82 @@
 # MOSAICO+ Core API (.NET 8)
 
-API RESTful desenvolvida em C# / .NET para o projeto **Global Solution – O Futuro do Trabalho (FIAP)**.
-
-A **MOSAICO+ Core API** representa o núcleo backend de uma plataforma gamificada de trilhas de aprendizagem, missões e badges, onde usuários podem evoluir suas habilidades de forma contínua e rastreável.
-
----
-
-## 🎯 Objetivo
-
-Demonstrar uma solução tecnológica alinhada ao tema **“O Futuro do Trabalho”**, aplicando:
-
-- Boas práticas REST (verbo correto + status code adequado);
-- Versionamento da API por URL (`/api/v1/...`);
-- Integração com banco de dados via **Entity Framework Core + SQL Server**;
-- Documentação via **Swagger / OpenAPI**;
-- Estrutura arquitetural clara para avaliação acadêmica.
+API RESTful para o projeto **Global Solution – O Futuro do Trabalho (FIAP)**
+Disciplinas: **C#** e **SOA & WebServices**
 
 ---
 
-## 📐 Arquitetura da Solução
+## 📘 Visão Geral
 
-A API segue uma arquitetura limpa baseada em três camadas principais:
+A **MOSAICO+ Core API** é o backend oficial da plataforma **MOSAICO+**, um ecossistema digital gamificado que conecta trilhas de aprendizagem, missões, badges e evolução profissional de usuários.
 
-*   **Controllers REST:** Responsáveis por receber as requisições HTTP, validar a entrada e orquestrar as operações.
-*   **Camada de Aplicação:** Onde residem as regras de negócio simples e a lógica de coordenação.
-*   **Acesso a Dados:** Abstraído pelo **Entity Framework Core**, que se comunica com um banco de dados **SQL Server**.
+A API foi construída com foco em:
 
-Os diagramas abaixo ilustram a estrutura e o fluxo dos componentes.
+* Arquitetura **SOA** (Services Oriented Architecture)
+* **Boas práticas REST**
+* **Segurança com JWT + Autorização por Perfis (Roles)**
+* **Tratamento global de exceções**
+* **DTOs, Entities, Enums e Controllers bem definidos**
+* **Versionamento via `/api/v1/...`**
+* **Swagger com autenticação pelo botão Authorize()**
 
-### 🗺️ 1 — Arquitetura Geral
+---
 
-Este diagrama mostra a visão macro da solução, desde o cliente até a persistência dos dados.
+## 🧩 Objetivo do Projeto
+
+Criar uma API robusta, segura e modular, que permita:
+
+* Registrar usuários com diferentes perfis (**Student**, **Company**, **Admin**)
+* Manipular trilhas de estudo
+* Atribuir e completar missões
+* Conceder e revogar badges
+* Gerenciar progresso do usuário
+* Permitir que cada funcionalidade seja exposta como **serviço independente** (SOA)
+
+---
+
+# 🏛 Arquitetura (SOA + Clean Services)
+
+A seguir os diagramas completos, prontos para visualização no GitHub.
+
+---
+
+## 🗺️ Diagrama 1 – Arquitetura Geral (SOA)
 
 ```mermaid
 flowchart LR
     subgraph Client["Cliente / Consumidores"]
         SW["Swagger UI"]
-        PM["Postman / App Mobile (futuro)"]
+        Mobile["MOSAICO+ App (futuro)"]
     end
 
     subgraph API["MOSAICO+ Core API (.NET 8)"]
-        CTRL["Controllers REST\n(Users, Tracks, UserTracks,\nMissions, UserMissions, Badges)"]
-        APP["Camada de Aplicação\n(Regra de Negócio)"]
+        CTRL["Controllers REST"]
+        SRV["Serviços (SOA)\nTracksService\nMissionsService\nUserService\nBadgeService"]
+        MIDDLE["Middleware Global de Exceções"]
         EF["Entity Framework Core"]
     end
 
     subgraph DB["Banco de Dados\nSQL Server (MosaicoDb)"]
-        TB_USERS["Tabela: Users"]
-        TB_TRACKS["Tabela: Tracks"]
-        TB_UTP["Tabela: UserTrackProgresses"]
-        TB_MISSIONS["Tabela: Missions"]
-        TB_UM["Tabela: UserMissions"]
-        TB_BADGES["Tabela: Badges"]
+        TB_USERS["Users"]
+        TB_TRACKS["Tracks"]
+        TB_PROGRESS["UserTrackProgress"]
+        TB_MISSIONS["Missions"]
+        TB_USER_MISSIONS["UserMissions"]
+        TB_BADGES["Badges"]
     end
 
     SW --> CTRL
-    PM --> CTRL
+    Mobile --> CTRL
 
-    CTRL --> APP
-    APP --> EF
-    EF --> TB_USERS
-    EF --> TB_TRACKS
-    EF --> TB_UTP
-    EF --> TB_MISSIONS
-    EF --> TB_UM
-    EF --> TB_BADGES
+    CTRL --> SRV
+    SRV --> EF
+    EF --> DB
+    MIDDLE --> CTRL
 ```
 
-### 🏛️ 2 — Modelo de Domínio (Entidades)
+---
 
-O diagrama abaixo representa as principais entidades do sistema e seus relacionamentos.
+## 📦 Diagrama 2 – Modelo de Domínio (Entidades)
 
 ```mermaid
 classDiagram
@@ -77,9 +84,12 @@ classDiagram
         int Id
         string Name
         string Email
+        string Username
         string AreaOfInterest
         int Level
         int Xp
+        UserRole Role
+        string PasswordHash
     }
 
     class Track {
@@ -102,7 +112,7 @@ classDiagram
         int Id
         string Title
         string Description
-        string Type  // daily/weekly
+        MissionType Type
         int RewardXp
     }
 
@@ -122,137 +132,235 @@ classDiagram
         int UserId
     }
 
-    User "1" --> "many" UserTrackProgress : tracksProgress
-    Track "1" --> "many" UserTrackProgress : usersProgress
+    User "1" --> "many" UserTrackProgress
+    Track "1" --> "many" UserTrackProgress
 
-    User "1" --> "many" UserMission : userMissions
-    Mission "1" --> "many" UserMission : userMissions
+    User "1" --> "many" UserMission
+    Mission "1" --> "many" UserMission
 
-    User "1" --> "many" Badge : badges
+    User "1" --> "many" Badge
 ```
 
-### 🔁 3 — Fluxo de Gamificação
+---
 
-Este diagrama de sequência ilustra um fluxo de uso comum na plataforma, mostrando como a gamificação funciona.
+## 🔁 Diagrama 3 – Fluxo de Autenticação / JWT
 
 ```mermaid
 sequenceDiagram
-    participant U as Usuário
-    participant API as MOSAICO+ API
-    participant DB as Banco (SQL Server)
+    participant U as Cliente
+    participant API as API
+    participant DB as SQL Server
 
-    U->>API: POST /users/{id}/missions/{id}/complete
-    API->>API: Valida dados da requisição
-    API->>DB: Busca Usuário e Missão
-    DB-->>API: Retorna dados
-    API->>API: Calcula novo XP do usuário
-    API->>DB: Atualiza User (XP) e UserMission (IsCompleted)
-    DB-->>API: Confirmação de persistência
-    API-->>U: 204 NoContent (Sucesso)
+    U->>API: POST /api/v1/auth/register
+    API->>DB: Cria usuário
+    DB-->>API: OK
+    API-->>U: 201 Created
+
+    U->>API: POST /api/v1/auth/login
+    API->>DB: Valida credenciais
+    DB-->>API: User + Role
+    API-->>U: JWT Token
 ```
 
 ---
 
-## 🔗 Versionamento da API
+## 🧱 Tecnologias
 
-A API utiliza **versionamento por URL**. Todas as rotas desta versão seguem o prefixo `api/v1`.
-
--   **Exemplo:** `GET /api/v1/users`
-
-Essa estratégia permite evoluir a API no futuro (`/api/v2/...`) sem quebrar integrações existentes.
+* **.NET 8 (C#)**
+* **Entity Framework Core**
+* **SQL Server**
+* **JWT Bearer Authentication**
+* **Swagger / OpenAPI**
+* **SOA com Services + Interfaces**
+* **Middleware customizado**
+* **Migrations com EF Core**
 
 ---
 
-## 🧱 Principais Recursos (Endpoints v1)
+# ✔ Atendimentos aos Requisitos — C# (100%)
 
-A seguir, a lista dos principais endpoints disponíveis.
+### ✔ Boas práticas REST
 
-### 👤 Users
-- `GET /api/v1/users`
-- `GET /api/v1/users/{id}`
-- `POST /api/v1/users`
-- `PUT /api/v1/users/{id}`
-- `DELETE /api/v1/users/{id}`
+* Verbos corretos (GET, POST, PUT, DELETE)
+* Rota padrão `/api/v1/[controller]`
+* Respostas com `ActionResult`, `CreatedAtAction`, `NoContent`, `NotFound`, etc.
+
+### ✔ Versionamento da API
+
+* Todas as rotas seguem padrão:
+
+  ```  /api/v1/...
+  ```
+
+### ✔ Integração com Banco de Dados
+
+* SQL Server
+* Entity Framework Core
+* Migrations aplicadas (`InitialCreate`, `AddAuthFields...`)
+
+### ✔ Documentação com Swagger
+
+* JWT integrado
+* Botão **Authorize**
+* Modelos e responses automáticos
+
+---
+
+# ✔ Atendimentos aos Requisitos — SOA & WebServices (100%)
+
+### ✔ Entities, DTOs, Enums e Controllers criados
+
+* DTOs: `UserDto`, `TrackDto`, `MissionDto`, `BadgeDto`
+* Enums: `UserRole`, `MissionType`
+* Controllers: Users, Tracks, Missions, Badges, Auth
+* Exceto Auth, todos versionados e organizados
+
+---
+
+### ✔ Padronização de Resposta com ResponseEntity
+
+Via `ActionResult`, `CreatedAtAction`, `NoContent`, `Ok`, `BadRequest`
+
+---
+
+### ✔ Tratamento Global de Exceções (Middleware)
+
+`ExceptionHandlingMiddleware` intercepta exceções e retorna JSON:
+
+* 400 para erros de validação
+* 404 quando entidade não existe
+* 500 para erros internos
+
+---
+
+### ✔ Segurança para Autenticação de Usuário
+
+* Registro + Login via JWT
+* Hash de senha com BCrypt
+
+---
+
+### ✔ Autorização com Roles
+
+* Perfis: **Admin**, **Student**, **Company**
+* Exemplo:
+
+```csharp
+[Authorize(Roles = "Admin")]
+```
+
+---
+
+### ✔ Política Stateless com Token JWT
+
+* API usa `JwtBearer`
+* Sem session
+* Stateless total (SOA compliant)
+
+---
+
+### ✔ Regras de Negócio em Services (SOA)
+
+Dividido em:
+
+* `ITrackService` / `TrackService`
+* `IMissionService` / `MissionService`
+* `IUserService` / `UserService`
+* `IBadgeService` / `BadgeService`
+
+Controllers ficaram finos, delegando trabalho aos serviços.
+
+---
+
+### ✔ Organização Modular
+
+* Camadas independentes:
+
+  * `/Application/Interfaces`
+  * `/Application/Services`
+  * `/Domain/Entities`
+  * `/Dtos`
+  * `/Controllers`
+  * `/Infrastructure/Data`
+
+---
+
+# 📡 Endpoints Principais (v1)
+
+### 🔐 Auth
+
+`POST /api/v1/auth/register`
+`POST /api/v1/auth/login`
+
+---
+
+### 👤 Users (Admin only)
+
+`GET /api/v1/users`
+`GET /api/v1/users/{id}`
+`PUT /api/v1/users/{id}`
+`DELETE /api/v1/users/{id}`
+
+---
 
 ### 📚 Tracks
-- `GET /api/v1/tracks`
-- `GET /api/v1/tracks/{id}`
-- `POST /api/v1/tracks`
-- `PUT /api/v1/tracks/{id}`
-- `DELETE /api/v1/tracks/{id}`
 
-### 📈 User Tracks (Progresso)
-- `GET /api/v1/users/{userId}/tracks`
-- `POST /api/v1/users/{userId}/tracks/{trackId}/progress`
+`GET /api/v1/tracks`
+`POST /api/v1/tracks` (Admin)
+`PUT /api/v1/tracks/{id}` (Admin)
+`DELETE /api/v1/tracks/{id}` (Admin)
 
-### 🎯 Missions & User Missions
-- `GET /api/v1/missions`
-- `POST /api/v1/missions`
-- `GET /api/v1/users/{userId}/missions`
-- `POST /api/v1/users/{userId}/missions/{missionId}/complete`
+---
+
+### 🎯 Missions
+
+`GET /api/v1/missions`
+`POST /api/v1/missions` (Admin)
+`PUT /api/v1/missions/{id}` (Admin)
+`DELETE /api/v1/missions/{id}` (Admin)
+
+---
 
 ### 🏅 Badges
-- `GET /api/v1/users/{userId}/badges`
-- `POST /api/v1/users/{userId}/badges`
+
+`GET /api/v1/users/{userId}/badges`
+`POST /api/v1/users/{userId}/badges` (Admin)
+`DELETE /api/v1/users/{userId}/badges/{badgeId}` (Admin)
 
 ---
 
-## 🗄️ Banco de Dados & Entity Framework Core
+# ▶️ Como executar
 
--   **Banco:** SQL Server (LocalDB ou Express)
--   **ORM:** Entity Framework Core
--   **Estratégia:** Code-First com Migrations
-
-Para criar ou atualizar a estrutura do banco de dados, utilize os comandos do EF Core. A migration inicial (`InitialCreate`) já está incluída no projeto.
-
----
-
-## 📚 Documentação da API (Swagger)
-
-A documentação interativa está disponível via **Swagger UI**. Ao executar o projeto, acesse:
-
-```text
-https://localhost:xxxx/swagger
-```
-*(A porta `xxxx` será definida ao iniciar a aplicação).*
-
-Pelo Swagger é possível inspecionar todos os endpoints, testar requisições e validar os status codes de resposta.
-
----
-
-## ▶️ Como executar localmente
-
-Siga os passos abaixo para rodar a API em sua máquina.
-
-**1. Restaurar dependências:**
 ```bash
 dotnet restore
-```
-
-**2. Aplicar as migrations no banco de dados:**
-```bash
 dotnet ef database update
-```
-
-**3. Executar a API:**
-```bash
 dotnet run
 ```
 
-**4. Acessar o Swagger** no endereço fornecido pelo console.
+Acesse:
+
+```
+https://localhost:xxxx/swagger
+```
+
+Clique no botão **Authorize**, cole o token JWT e use normalmente.
 
 ---
 
-## 🎥 Vídeo de Demonstração
+# 👤 Integrantes do Grupo
 
-O vídeo de apresentação do projeto demonstra a arquitetura, o uso dos endpoints via Swagger e a persistência dos dados no banco.
-
-**Link do vídeo:** *[LINK DO YOUTUBE]*
+* **Nikolas Rodrigues Moura dos Santos – RM 551566**
+* **Thiago Jardim de Oliveira – RM 551624**
+* **Rodrigo Brasileiro – RM 98952**
 
 ---
 
-## 👤 Autores
+# 🚀 Conclusão
 
-* Nikolas Rodrigues Moura dos Santos  – RM: 551566
-* Thiago Jardim de Oliveira - RM: 551624
-* Rodrigo Brasileiro - RM: 98952
+A MOSAICO+ Core API foi construída com rigor técnico para atender aos requisitos de:
+
+* **C# (REST, DB, Swagger, arquitetura limpa)**
+* **SOA (serviços independentes, JWT stateless, modularidade, exceções globais)**
+* **Futuro do Trabalho (tema da Global Solution)**
+
+É uma base sólida, escalável e profissional, pronta para integração com o app mobile e evolução futura.
