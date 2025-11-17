@@ -1,126 +1,67 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Mosaico.Api.Domain.Entities;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Mosaico.Api.Application.Interfaces;
 using Mosaico.Api.Dtos;
-using Mosaico.Api.Infrastructure.Data;
 
 namespace Mosaico.Api.Controllers
 {
     [ApiController]
     [Route("api/v1/[controller]")]
+    [Authorize]
     public class TracksController : ControllerBase
     {
-        private readonly MosaicoContext _context;
+        private readonly ITrackService _trackService;
 
-        public TracksController(MosaicoContext context)
+        public TracksController(ITrackService trackService)
         {
-            _context = context;
+            _trackService = trackService;
         }
 
-        // GET: api/v1/tracks
         [HttpGet]
         public async Task<ActionResult<IEnumerable<TrackDto>>> GetTracks()
         {
-            var tracks = await _context.Tracks
-                .Select(t => new TrackDto
-                {
-                    Id = t.Id,
-                    Title = t.Title,
-                    Area = t.Area,
-                    TotalLessons = t.TotalLessons,
-                    EstimatedHours = t.EstimatedHours
-                })
-                .ToListAsync();
-
+            var tracks = await _trackService.GetAllAsync();
             return Ok(tracks);
         }
 
-        // GET: api/v1/tracks/5
         [HttpGet("{id:int}")]
         public async Task<ActionResult<TrackDto>> GetTrack(int id)
         {
-            var track = await _context.Tracks.FindAsync(id);
-
+            var track = await _trackService.GetByIdAsync(id);
             if (track == null)
                 return NotFound();
 
-            var dto = new TrackDto
-            {
-                Id = track.Id,
-                Title = track.Title,
-                Area = track.Area,
-                TotalLessons = track.TotalLessons,
-                EstimatedHours = track.EstimatedHours
-            };
-
-            return Ok(dto);
+            return Ok(track);
         }
 
-        // POST: api/v1/tracks
         [HttpPost]
-        public async Task<ActionResult<TrackDto>> CreateTrack([FromBody] TrackDto request)
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<TrackDto>> CreateTrack([FromBody] TrackDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var track = new Track
-            {
-                Title = request.Title,
-                Area = request.Area,
-                TotalLessons = request.TotalLessons,
-                EstimatedHours = request.EstimatedHours
-            };
-
-            _context.Tracks.Add(track);
-            await _context.SaveChangesAsync();
-
-            var dto = new TrackDto
-            {
-                Id = track.Id,
-                Title = track.Title,
-                Area = track.Area,
-                TotalLessons = track.TotalLessons,
-                EstimatedHours = track.EstimatedHours
-            };
-
-            return CreatedAtAction(nameof(GetTrack), new { id = track.Id }, dto);
+            var created = await _trackService.CreateAsync(dto);
+            return CreatedAtAction(nameof(GetTrack), new { id = created.Id }, created);
         }
 
-        // PUT: api/v1/tracks/5
         [HttpPut("{id:int}")]
-        public async Task<IActionResult> UpdateTrack(int id, [FromBody] TrackDto request)
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateTrack(int id, [FromBody] TrackDto dto)
         {
-            if (id != request.Id)
-                return BadRequest("Id do corpo difere do id da rota.");
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
-            var track = await _context.Tracks.FindAsync(id);
-
-            if (track == null)
-                return NotFound();
-
-            track.Title = request.Title;
-            track.Area = request.Area;
-            track.TotalLessons = request.TotalLessons;
-            track.EstimatedHours = request.EstimatedHours;
-
-            await _context.SaveChangesAsync();
-
-            return NoContent(); // 204
+            await _trackService.UpdateAsync(id, dto);
+            return NoContent();
         }
 
-        // DELETE: api/v1/tracks/5
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteTrack(int id)
         {
-            var track = await _context.Tracks.FindAsync(id);
-
-            if (track == null)
-                return NotFound();
-
-            _context.Tracks.Remove(track);
-            await _context.SaveChangesAsync();
-
-            return NoContent(); // 204
+            await _trackService.DeleteAsync(id);
+            return NoContent();
         }
     }
 }

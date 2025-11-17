@@ -1,123 +1,67 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Mosaico.Api.Domain.Entities;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Mosaico.Api.Application.Interfaces;
 using Mosaico.Api.Dtos;
-using Mosaico.Api.Infrastructure.Data;
 
 namespace Mosaico.Api.Controllers
 {
     [ApiController]
     [Route("api/v1/[controller]")]
+    [Authorize]
     public class MissionsController : ControllerBase
     {
-        private readonly MosaicoContext _context;
+        private readonly IMissionService _missionService;
 
-        public MissionsController(MosaicoContext context)
+        public MissionsController(IMissionService missionService)
         {
-            _context = context;
+            _missionService = missionService;
         }
 
-        // GET: api/v1/missions
         [HttpGet]
         public async Task<ActionResult<IEnumerable<MissionDto>>> GetMissions()
         {
-            var missions = await _context.Missions
-                .Select(m => new MissionDto
-                {
-                    Id = m.Id,
-                    Title = m.Title,
-                    Description = m.Description,
-                    Type = m.Type,
-                    RewardXp = m.RewardXp
-                })
-                .ToListAsync();
-
+            var missions = await _missionService.GetAllAsync();
             return Ok(missions);
         }
 
-        // GET: api/v1/missions/5
         [HttpGet("{id:int}")]
         public async Task<ActionResult<MissionDto>> GetMission(int id)
         {
-            var m = await _context.Missions.FindAsync(id);
-            if (m == null)
+            var mission = await _missionService.GetByIdAsync(id);
+            if (mission == null)
                 return NotFound();
 
-            var dto = new MissionDto
-            {
-                Id = m.Id,
-                Title = m.Title,
-                Description = m.Description,
-                Type = m.Type,
-                RewardXp = m.RewardXp
-            };
-
-            return Ok(dto);
+            return Ok(mission);
         }
 
-        // POST: api/v1/missions
         [HttpPost]
-        public async Task<ActionResult<MissionDto>> CreateMission([FromBody] MissionDto request)
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<MissionDto>> CreateMission([FromBody] MissionDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var mission = new Mission
-            {
-                Title = request.Title,
-                Description = request.Description,
-                Type = request.Type,
-                RewardXp = request.RewardXp
-            };
-
-            _context.Missions.Add(mission);
-            await _context.SaveChangesAsync();
-
-            var dto = new MissionDto
-            {
-                Id = mission.Id,
-                Title = mission.Title,
-                Description = mission.Description,
-                Type = mission.Type,
-                RewardXp = mission.RewardXp
-            };
-
-            return CreatedAtAction(nameof(GetMission), new { id = mission.Id }, dto);
+            var created = await _missionService.CreateAsync(dto);
+            return CreatedAtAction(nameof(GetMission), new { id = created.Id }, created);
         }
 
-        // PUT: api/v1/missions/5
         [HttpPut("{id:int}")]
-        public async Task<IActionResult> UpdateMission(int id, [FromBody] MissionDto request)
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateMission(int id, [FromBody] MissionDto dto)
         {
-            if (id != request.Id)
-                return BadRequest("Id do corpo difere do id da rota.");
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
-            var mission = await _context.Missions.FindAsync(id);
-            if (mission == null)
-                return NotFound();
-
-            mission.Title = request.Title;
-            mission.Description = request.Description;
-            mission.Type = request.Type;
-            mission.RewardXp = request.RewardXp;
-
-            await _context.SaveChangesAsync();
-
-            return NoContent(); // 204
+            await _missionService.UpdateAsync(id, dto);
+            return NoContent();
         }
 
-        // DELETE: api/v1/missions/5
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteMission(int id)
         {
-            var mission = await _context.Missions.FindAsync(id);
-            if (mission == null)
-                return NotFound();
-
-            _context.Missions.Remove(mission);
-            await _context.SaveChangesAsync();
-
-            return NoContent(); // 204
+            await _missionService.DeleteAsync(id);
+            return NoContent();
         }
     }
 }

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Mosaico.Api.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using Mosaico.Api.Infrastructure.Data;
 namespace Mosaico.Api.Migrations
 {
     [DbContext(typeof(MosaicoContext))]
-    partial class MosaicoContextModelSnapshot : ModelSnapshot
+    [Migration("20251116164026_AddAuthFieldsAndMissionEnum")]
+    partial class AddAuthFieldsAndMissionEnum
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

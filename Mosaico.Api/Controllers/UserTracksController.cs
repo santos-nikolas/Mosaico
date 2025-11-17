@@ -3,11 +3,13 @@ using Microsoft.EntityFrameworkCore;
 using Mosaico.Api.Domain.Entities;
 using Mosaico.Api.Dtos;
 using Mosaico.Api.Infrastructure.Data;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Mosaico.Api.Controllers
 {
     [ApiController]
     [Route("api/v1/users/{userId:int}/tracks")]
+    [Authorize]
     public class UserTracksController : ControllerBase
     {
         private readonly MosaicoContext _context;

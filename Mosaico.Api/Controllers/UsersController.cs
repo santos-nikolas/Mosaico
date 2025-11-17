@@ -1,132 +1,51 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Mosaico.Api.Domain.Entities;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Mosaico.Api.Application.Interfaces;
 using Mosaico.Api.Dtos;
-using Mosaico.Api.Infrastructure.Data;
 
 namespace Mosaico.Api.Controllers
 {
     [ApiController]
     [Route("api/v1/[controller]")]
+    [Authorize(Roles = "Admin")]
     public class UsersController : ControllerBase
     {
-        private readonly MosaicoContext _context;
+        private readonly IUserService _userService;
 
-        public UsersController(MosaicoContext context)
+        public UsersController(IUserService userService)
         {
-            _context = context;
+            _userService = userService;
         }
 
-        // GET: api/v1/users
         [HttpGet]
         public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers()
         {
-            var users = await _context.Users
-                .Select(u => new UserDto
-                {
-                    Id = u.Id,
-                    Name = u.Name,
-                    Email = u.Email,
-                    AreaOfInterest = u.AreaOfInterest,
-                    Level = u.Level,
-                    Xp = u.Xp
-                })
-                .ToListAsync();
-
-            return Ok(users);
+            return Ok(await _userService.GetAllAsync());
         }
 
-        // GET: api/v1/users/5
         [HttpGet("{id:int}")]
         public async Task<ActionResult<UserDto>> GetUser(int id)
         {
-            var user = await _context.Users.FindAsync(id);
-
+            var user = await _userService.GetByIdAsync(id);
             if (user == null)
                 return NotFound();
 
-            var dto = new UserDto
-            {
-                Id = user.Id,
-                Name = user.Name,
-                Email = user.Email,
-                AreaOfInterest = user.AreaOfInterest,
-                Level = user.Level,
-                Xp = user.Xp
-            };
-
-            return Ok(dto);
+            return Ok(user);
         }
 
-        // POST: api/v1/users
-        [HttpPost]
-        public async Task<ActionResult<UserDto>> CreateUser([FromBody] UserDto request)
-        {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            var user = new User
-            {
-                Name = request.Name,
-                Email = request.Email,
-                AreaOfInterest = request.AreaOfInterest,
-                Level = request.Level == 0 ? 1 : request.Level,
-                Xp = request.Xp
-            };
-
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-
-            var dto = new UserDto
-            {
-                Id = user.Id,
-                Name = user.Name,
-                Email = user.Email,
-                AreaOfInterest = user.AreaOfInterest,
-                Level = user.Level,
-                Xp = user.Xp
-            };
-
-            // 201 Created com Location
-            return CreatedAtAction(nameof(GetUser), new { id = user.Id }, dto);
-        }
-
-        // PUT: api/v1/users/5
+        // Atualização opcional
         [HttpPut("{id:int}")]
-        public async Task<IActionResult> UpdateUser(int id, [FromBody] UserDto request)
+        public async Task<IActionResult> UpdateUser(int id, [FromBody] UserDto dto)
         {
-            if (id != request.Id)
-                return BadRequest("Id do corpo difere do id da rota.");
-
-            var user = await _context.Users.FindAsync(id);
-
-            if (user == null)
-                return NotFound();
-
-            user.Name = request.Name;
-            user.Email = request.Email;
-            user.AreaOfInterest = request.AreaOfInterest;
-            user.Level = request.Level;
-            user.Xp = request.Xp;
-
-            await _context.SaveChangesAsync();
-
-            return NoContent(); // 204
+            await _userService.UpdateAsync(id, dto);
+            return NoContent();
         }
 
-        // DELETE: api/v1/users/5
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
-            var user = await _context.Users.FindAsync(id);
-
-            if (user == null)
-                return NotFound();
-
-            _context.Users.Remove(user);
-            await _context.SaveChangesAsync();
-
-            return NoContent(); // 204
+            await _userService.DeleteAsync(id);
+            return NoContent();
         }
     }
 }

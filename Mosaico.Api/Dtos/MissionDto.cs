@@ -2,10 +2,13 @@
 {
     public class MissionDto
     {
-        public int Id { get; set; }              // usado em respostas
+        public int Id { get; set; }
         public string Title { get; set; } = default!;
         public string Description { get; set; } = default!;
-        public string Type { get; set; } = default!; // daily / weekly
+
+        // Aqui mantemos string para facilitar consumo pela API
+        public string Type { get; set; } = default!; // "daily" / "weekly"
+
         public int RewardXp { get; set; }
     }
 }
